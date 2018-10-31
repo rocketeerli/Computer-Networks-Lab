@@ -1,0 +1,7 @@
+# depslib dependency file v1.0
+1540997588 source:c:\users\13144\desktop\computer-networks-lab\lab1\main.cpp
+	<stdio.h>
+	<Windows.h>
+	<process.h>
+	<string.h>
+
