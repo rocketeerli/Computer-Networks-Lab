@@ -11,10 +11,10 @@
 #define MAXSIZE 65507 //发送数据报文的最大长度
 #define HTTP_PORT 80 //http 服务器端口
 
-#define INVILID_WEBSITE "http://www.hit.edu.cn/"            //被屏蔽的网站
+#define INVILID_WEBSITE "http://www.qq.com/"            //被屏蔽的网站
 
-#define FISHING_WEB_SRC "http://www.qq.com/"         //钓鱼的源网址
-#define FISHING_WEB_DEST "jwts.hit.edu.cn/"    //钓鱼的目的网址
+#define FISHING_WEB_SRC "http://today.hit.edu.cn/"         //钓鱼的源网址
+#define FISHING_WEB_DEST "http://jwts.hit.edu.cn/"    //钓鱼的目的网址
 
 
 //Http 重要头部数据
@@ -37,7 +37,6 @@ void makeNewHTTP(char *buffer, char *value);
 void makeFilename(char *url, char *filename);
 void makeCache(char *buffer, char *url);
 void getCache(char *buffer, char *filename);
-void makeNewBuffer(char *buffer, char *host, char *url);
 
 //代理相关参数
 SOCKET ProxyServer;
@@ -129,6 +128,7 @@ BOOL InitSocket(){
     ProxyServerAddr.sin_port = htons(ProxyPort);      //将整型变量从主机字节顺序转变成网络字节顺序
     //ProxyServerAddr.sin_addr.S_un.S_addr = INADDR_ANY;
     ProxyServerAddr.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");//仅本机用户可访问服务器
+    //ProxyServerAddr.sin_addr.S_un.S_addr = inet_addr("127.0.0.2");
     if(bind(ProxyServer,(SOCKADDR*)&ProxyServerAddr,sizeof(SOCKADDR)) == SOCKET_ERROR){
         printf("绑定套接字失败\n");
         return FALSE;
@@ -168,7 +168,7 @@ unsigned int __stdcall ProxyThread(LPVOID lpParameter){
     ParseHttpHead(CacheBuffer, httpHeader);
 
     //缓存
-    /*char *DateBuffer;
+    char *DateBuffer;
     DateBuffer = (char*)malloc(MAXSIZE);
 	ZeroMemory(DateBuffer, strlen(Buffer) + 1);
 	memcpy(DateBuffer, Buffer, strlen(Buffer) + 1);
@@ -191,10 +191,11 @@ unsigned int __stdcall ProxyThread(LPVOID lpParameter){
 		makeNewHTTP(Buffer, date_str);
 		haveCache = TRUE;
 		goto success;
-	}*/
+	}
 
     //网站过滤：屏蔽一个网站
     if (strcmp (httpHeader->url, INVILID_WEBSITE) == 0) {
+        printf("\n=====================================\n\n");
         printf("-------------Sorry!!!该网站已被屏蔽----------------\n");
         goto error;
     }
@@ -216,11 +217,12 @@ unsigned int __stdcall ProxyThread(LPVOID lpParameter){
     //网站引导：钓鱼
 	if (strstr(httpHeader->url, "http://today.hit.edu.cn/") != NULL) {
 		printf("\n=====================================\n\n");
-		printf("from  http://today.hit.edu.cn/  to  http://jwts.hit.edu.cn\n");
+		printf("-------------已从源网址：%s 转到 目的网址 ：%s ----------------\n", FISHING_WEB_SRC,FISHING_WEB_DEST);
 		memcpy(httpHeader->host, "jwts.hit.edu.cn", 22);
-        char *p1 = "http://jwts.hit.edu.cn";
+        char *p1 = FISHING_WEB_DEST;
         char *p2 = "jwts.hit.edu.cn";
-        makeNewBuffer(Buffer, p2, p1);
+        memcpy(httpHeader->url, FISHING_WEB_DEST, strlen(FISHING_WEB_DEST));
+        memcpy(httpHeader->host, "jwts.hit.edu.cn", strlen("jwts.hit.edu.cn"));
 	}
 
     delete CacheBuffer;
@@ -241,12 +243,12 @@ success:
         goto error;
     }
 	//有缓存时，判断返回的状态码是否是304，若是则将缓存的内容发送给客户端
-	/*if (haveCache == TRUE) {
+	if (haveCache == TRUE) {
 		getCache(Buffer, filename);
 	}
 	if (needCache == TRUE) {
 		makeCache(Buffer, httpHeader->url);  //缓存报文
-	}*/
+	}
 
     //将目标服务器返回的数据直接转发给客户端
     ret = send(((ProxyParam *)lpParameter)->clientSocket,Buffer,sizeof(Buffer),0);
@@ -274,12 +276,11 @@ error:
 // Parameter: HttpHeader * httpHeader
 //************************************
 void ParseHttpHead(char *buffer,HttpHeader * httpHeader){
-    printf("Buffer为----------------------------------\n%s", buffer);
     char *p;
     const char * delim = "\r\n";
     p = strtok(buffer,delim); // 第一次调用，第一个参数为被分解的字符串
     //提取第一行
-    printf("%s\n",p);
+    //printf("%s\n",p);
     if(p[0] == 'G'){
         //GET 方式
         memcpy(httpHeader->method,"GET",3);
@@ -420,7 +421,8 @@ void makeCache(char *buffer, char *url) {
 		out = fopen(filename, "w");
 		fwrite(buffer, sizeof(char), strlen(buffer), out);
 		fclose(out);
-		printf("\nnetpage has been stored\n");
+		printf("\n=====================================\n\n");
+		printf("\n网页已经被缓存\n");
 	}
 }
 
@@ -434,7 +436,8 @@ void getCache(char *buffer, char *filename) {
 	p = strtok(tempBuffer, delim);//提取第一行
 	memcpy(num, &p[9], 3);
 	if (strcmp(num, "304") == 0) {  //主机返回的报文中的状态码为304时返回已缓存的内容
-		printf("get cache from host\n");
+        printf("\n=====================================\n\n");
+		printf("从本机获得缓存\n");
 		ZeroMemory(buffer, strlen(buffer));
 		FILE *in = NULL;
 		if ((in = fopen(filename, "r")) != NULL) {
@@ -443,59 +446,4 @@ void getCache(char *buffer, char *filename) {
 		}
 		needCache = FALSE;
 	}
-}
-
-//修改URL,host
-void makeNewBuffer(char *buffer, char *host, char *url){
-    char *p, tempBuffer[MAXSIZE + 1];
-	const char * delim = "\r\n";
-	ZeroMemory(tempBuffer, MAXSIZE + 1);
-	memcpy(tempBuffer, buffer, strlen(buffer));
-	p = strtok(tempBuffer, delim);//提取第一行
-    char CacheBuffer[MAXSIZE];
-    ZeroMemory(CacheBuffer, MAXSIZE);
-    if(p[0] == 'G'){
-        char *tmp = "GET ";
-        memcpy(CacheBuffer, tmp, 4);
-        strcat(CacheBuffer, url);
-        int i = 11;
-        while(p[i] != '/'){
-            i++;
-        }
-        char dest[100];
-        ZeroMemory(dest, 100);
-        memcpy(dest, p+i, strlen(p)-i);
-        strcat(CacheBuffer, dest);
-    }
-    if(p[0] == 'P'){
-        char *tmp = "POST ";
-        memcpy(CacheBuffer, tmp, 5);
-        strcat(CacheBuffer, url);
-        int i = 12;
-        while(p[i] != '/'){
-            i++;
-        }
-        char dest[100];
-        ZeroMemory(dest, 100);
-        memcpy(dest, p+i, strlen(p)-i);
-        strcat(CacheBuffer, dest);
-    }
-    strcat(CacheBuffer, "\r\n");
-    while((p = strtok(NULL,"\r\n")) != NULL){
-        if(p[0] == 'H'){
-            char tmp[100];
-            ZeroMemory(tmp, 100);
-            char *t = "HOST: ";
-            memcpy(tmp, t, 6);
-            strcat(tmp, host);
-            strcat(CacheBuffer, tmp);
-        }
-        else{
-            strcat(CacheBuffer, p);
-        }
-        strcat(CacheBuffer, "\r\n");
-    }
-    strcat(CacheBuffer, "\0");
-    //printf("%s", CacheBuffer);
-    memcpy(buffer, CacheBuffer, strlen(CacheBuffer));
 }
