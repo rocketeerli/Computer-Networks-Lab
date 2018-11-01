@@ -32,12 +32,12 @@ BOOL InitSocket();
 void ParseHttpHead(char *buffer,HttpHeader * httpHeader);
 BOOL ConnectToServer(SOCKET *serverSocket,char *host);
 unsigned int __stdcall ProxyThread(LPVOID lpParameter);
-
-void makeFileName(char *url, char *fileName);
-BOOL ParseDate(char *buffer, char *field, char *tempDate);
+boolean ParseDate(char *buffer, char *field, char *tempDate);
 void makeNewHTTP(char *buffer, char *value);
+void makeFilename(char *url, char *filename);
 void makeCache(char *buffer, char *url);
 void getCache(char *buffer, char *filename);
+void makeNewBuffer(char *buffer, char *host, char *url);
 
 //代理相关参数
 SOCKET ProxyServer;
@@ -45,8 +45,9 @@ sockaddr_in ProxyServerAddr;
 const int ProxyPort = 10240;
 
 //缓存相关参数
-BOOL haveCache = false;
-BOOL needCache = false;
+boolean haveCache = FALSE;
+boolean needCache = TRUE;
+char * strArr[100];
 
 //由于新的连接都使用新线程进行处理，对线程的频繁的创建和销毁特别浪费资源
 //可以使用线程池技术提高服务器效率
@@ -70,9 +71,7 @@ int main(int argc, char* argv[]) {
     SOCKET acceptSocket = INVALID_SOCKET;
     ProxyParam *lpProxyParam;
     HANDLE hThread;
-    DWORD dwThreadID;
     //代理服务器不断监听
-
     while(true){
         acceptSocket = accept(ProxyServer,NULL,NULL);
         lpProxyParam = new ProxyParam;
@@ -128,7 +127,8 @@ BOOL InitSocket(){
     }
     ProxyServerAddr.sin_family = AF_INET;
     ProxyServerAddr.sin_port = htons(ProxyPort);      //将整型变量从主机字节顺序转变成网络字节顺序
-    ProxyServerAddr.sin_addr.S_un.S_addr = INADDR_ANY;
+    //ProxyServerAddr.sin_addr.S_un.S_addr = INADDR_ANY;
+    ProxyServerAddr.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");//仅本机用户可访问服务器
     if(bind(ProxyServer,(SOCKADDR*)&ProxyServerAddr,sizeof(SOCKADDR)) == SOCKET_ERROR){
         printf("绑定套接字失败\n");
         return FALSE;
@@ -148,13 +148,8 @@ BOOL InitSocket(){
 // Parameter: LPVOID lpParameter
 //************************************
 unsigned int __stdcall ProxyThread(LPVOID lpParameter){
-    char Buffer[MAXSIZE];
-    char *CacheBuffer, *DateBuffer;
-
-    //缓存使用到的变量
-    char fileName[100], fileBuffer[MAXSIZE] ,dateStr[50];
-    char *field = "Date";
-
+    char Buffer[MAXSIZE], fileBuffer[MAXSIZE];
+    char *CacheBuffer;
     HttpHeader* httpHeader = new HttpHeader();
     ZeroMemory(Buffer,MAXSIZE);
     SOCKADDR_IN clientAddr;
@@ -162,85 +157,106 @@ unsigned int __stdcall ProxyThread(LPVOID lpParameter){
     int recvSize;
     int ret;
     recvSize = recv(((ProxyParam *)lpParameter)->clientSocket,Buffer,MAXSIZE,0);
-    if(recvSize <= 0){
+    /*if(recvSize <= 0){
         goto error;
-    }
+    }*/
     CacheBuffer = new char[recvSize + 1];
     ZeroMemory(CacheBuffer, recvSize + 1);
     memcpy(CacheBuffer, Buffer, recvSize);
 
-    DateBuffer = new char[recvSize + 1];
-    ZeroMemory(DateBuffer, recvSize + 1);
-    memcpy(DateBuffer, Buffer, recvSize);
-
     //解析http首部
     ParseHttpHead(CacheBuffer, httpHeader);
+
+    //缓存
+    /*char *DateBuffer;
+    DateBuffer = (char*)malloc(MAXSIZE);
+	ZeroMemory(DateBuffer, strlen(Buffer) + 1);
+	memcpy(DateBuffer, Buffer, strlen(Buffer) + 1);
+	//printf("DateBuffer: \n%s\n", DateBuffer);
+	char filename[100];
+	ZeroMemory(filename, 100);
+	makeFilename(httpHeader->url, filename);
+	//printf("filename : %s\n", filename);
+	char *field = "Date";
+	char date_str[30];  //保存字段Date的值
+	ZeroMemory(date_str, 30);
+	ZeroMemory(fileBuffer, MAXSIZE);
+	FILE *in;
+	if ((in = fopen(filename, "rb")) != NULL) {
+		printf("\n有缓存\n");
+		fread(fileBuffer, sizeof(char), MAXSIZE, in);
+		fclose(in);
+		ParseDate(fileBuffer, field, date_str);
+		printf("date_str:%s\n", date_str);
+		makeNewHTTP(Buffer, date_str);
+		haveCache = TRUE;
+		goto success;
+	}*/
 
     //网站过滤：屏蔽一个网站
     if (strcmp (httpHeader->url, INVILID_WEBSITE) == 0) {
         printf("-------------Sorry!!!该网站已被屏蔽----------------\n");
         goto error;
     }
-    //用户过滤：支持/不支持某些用户访问外部网站
-    printf("Buffer为----------------------------------\n%s", Buffer);
     //网站引导：将访问网址转到其他网站
-    if (strcmp(httpHeader->url, FISHING_WEB_SRC) == 0) {
+    /*if (strcmp(httpHeader->url, FISHING_WEB_SRC) == 0) {
         printf("-------------不好意思，。、您已被钓鱼，嘿嘿----------------\n");
         //错误的
-        memcpy(httpHeader->url, FISHING_WEB_DEST, strlen(FISHING_WEB_DEST));
+        //memcpy(httpHeader->url, FISHING_WEB_DEST, strlen(FISHING_WEB_DEST));
+        memcpy(httpHeader->host, "jwts.hit.edu.cn", 22);
+        char *p1 = "http://jwts.hit.edu.cn";
+        char *p2 = "jwts.hit.edu.cn";
+        makeNewBuffer(Buffer, p2, p1);
+        /*memcpy(httpHeader->url, FISHING_WEB_DEST, strlen(FISHING_WEB_DEST));
         memcpy(httpHeader->host, "jwts.hit.edu.cn", strlen("jwts.hit.edu.cn"));
         printf("目的网址： %s",httpHeader->host);
         printf("-------------已从源网址：%s 转到 目的网址 ：%s ----------------\n", FISHING_WEB_SRC,FISHING_WEB_DEST);
-    }
+    }*/
 
-    //缓存
-    ZeroMemory(fileName, 100);
-    ZeroMemory(dateStr, 50);
-    ZeroMemory(fileBuffer, MAXSIZE);
-    makeFileName(httpHeader->url, fileName);
-
-    //文件操作
-    FILE *fp;
-    if ((fp = fopen(fileName, "rb")) != NULL) {
-        printf("存在缓存....");
-        fread(fileBuffer, sizeof(char), MAXSIZE, fp);
-        fclose(fp);
-        ParseDate(fileBuffer, field, dateStr);
-        printf("dateStr: %s\n", dateStr);
-        makeNewHTTP(Buffer, dateStr);
-		printf("\n======改造后的请求报文======\n%s\n", Buffer);
-		haveCache = true;
-    }
+    //网站引导：钓鱼
+	if (strstr(httpHeader->url, "http://today.hit.edu.cn/") != NULL) {
+		printf("\n=====================================\n\n");
+		printf("from  http://today.hit.edu.cn/  to  http://jwts.hit.edu.cn\n");
+		memcpy(httpHeader->host, "jwts.hit.edu.cn", 22);
+        char *p1 = "http://jwts.hit.edu.cn";
+        char *p2 = "jwts.hit.edu.cn";
+        makeNewBuffer(Buffer, p2, p1);
+	}
 
     delete CacheBuffer;
-    delete DateBuffer;
+    //delete DateBuffer;
+
+success:
     if(!ConnectToServer(&((ProxyParam *)lpParameter)->serverSocket,httpHeader->host)) {
+        printf("连接目标服务器失败！！！\n");
         goto error;
     }
     printf("代理连接主机 %s 成功\n",httpHeader->host);
-
-    //有缓存时，判断返回的状态码是否是304，若是则将缓存的内容发送给客户端
-	if (haveCache == true) {
-		getCache(Buffer, fileName);
-	}
-	//将目标服务器返回的数据直接转发给客户端
-	printf("\n======响应报文======\n%s\n", Buffer);
-	if (needCache == true) {
-		makeCache(Buffer, httpHeader->url);  //缓存报文
-	}
-
     //将客户端发送的 HTTP 数据报文直接转发给目标服务器
     ret = send(((ProxyParam *)lpParameter)->serverSocket,Buffer,strlen(Buffer) + 1,0);
     //等待目标服务器返回数据
     recvSize = recv(((ProxyParam *)lpParameter)->serverSocket,Buffer,MAXSIZE,0);
     if(recvSize <= 0){
+        printf("返回目标服务器的数据失败！！！\n");
         goto error;
     }
+	//有缓存时，判断返回的状态码是否是304，若是则将缓存的内容发送给客户端
+	/*if (haveCache == TRUE) {
+		getCache(Buffer, filename);
+	}
+	if (needCache == TRUE) {
+		makeCache(Buffer, httpHeader->url);  //缓存报文
+	}*/
+
     //将目标服务器返回的数据直接转发给客户端
     ret = send(((ProxyParam *)lpParameter)->clientSocket,Buffer,sizeof(Buffer),0);
     //错误处理
-    error:
+
+error:
     printf("关闭套接字\n");
+    delete Buffer;
+    delete fileBuffer;
+    //delete filename;
     Sleep(200);
     closesocket(((ProxyParam*)lpParameter)->clientSocket);
     closesocket(((ProxyParam*)lpParameter)->serverSocket);
@@ -327,36 +343,25 @@ BOOL ConnectToServer(SOCKET *serverSocket,char *host){
     return TRUE;
 }
 
-//根据url构造文件名
-void makeFileName(char *url, char *fileName) {
-	char *p = fileName;
-	while (*url != '\0') {
-		if (*url != '/' && *url != ':' && *url != '.') {
-			*p++ = *url;
-		}
-		url++;
-	}
-}
+
 //分析HTTP头部的field字段，如果包含该field则返回true，并获取日期
-BOOL ParseDate(char *buffer, char *field, char *tempDate) {
-	char *p, temp[5], *buffer2;
-	//const char *field = "If-Modified-Since";
+boolean ParseDate(char *buffer, char *field, char *tempDate) {
+	char *p, *ptr, temp[5];
+	//*field = "If-Modified-Since";
 	const char *delim = "\r\n";
 	ZeroMemory(temp, 5);
-	ZeroMemory(buffer2, strlen(buffer) + 1);
-	memcpy(buffer2, buffer, strlen(buffer));
-	p = strtok(buffer2, delim);
+	p = strtok(buffer, delim);
 	//printf("%s\n", p);
 	int len = strlen(field) + 2;
 	while (p) {
 		if (strstr(p, field) != NULL) {
 			memcpy(tempDate, &p[len], strlen(p) - len);
 			//printf("tempDate: %s\n", tempDate);
-			return true;
+			return TRUE;
 		}
 		p = strtok(NULL, delim);
 	}
-	return false;
+	return TRUE;
 }
 
 //改造HTTP请求报文
@@ -367,7 +372,8 @@ void makeNewHTTP(char *buffer, char *value) {
 	char temp[MAXSIZE];
 	ZeroMemory(temp, MAXSIZE);
 	char *pos = strstr(buffer, field);
-	for (int i = 0; i < strlen(pos); i++) {
+    int i = 0;
+	for (i = 0; i < strlen(pos); i++) {
 		temp[i] = pos[i];
 	}
 	*pos = '\0';
@@ -379,15 +385,26 @@ void makeNewHTTP(char *buffer, char *value) {
 	}
 	*pos++ = '\r';
 	*pos++ = '\n';
-	for (int i = 0; i < strlen(temp); i++) {
+	for (i = 0; i < strlen(temp); i++) {
 		*pos++ = temp[i];
 	}
-	//printf("buffer: %s\n", buffer);
 }
+
+//根据url构造文件名
+void makeFilename(char *url, char *filename) {
+	while (*url != '\0') {
+		if (*url != '/' && *url != ':' && *url != '.') {
+			*filename++ = *url;
+		}
+		url++;
+	}
+    strcat(filename, ".txt");
+}
+
 
 //进行缓存
 void makeCache(char *buffer, char *url) {
-	char *p, num[10], tempBuffer[MAXSIZE + 1];
+	char *p, *ptr, num[10], tempBuffer[MAXSIZE + 1];
 	const char * delim = "\r\n";
 	ZeroMemory(num, 10);
 	ZeroMemory(tempBuffer, MAXSIZE + 1);
@@ -397,20 +414,19 @@ void makeCache(char *buffer, char *url) {
 	if (strcmp(num, "200") == 0) {  //状态码是200时缓存
 		//printf("url : %s\n", url);
 		char filename[100] = { 0 };  // 构造文件名
-		makeFileName(url, filename);
-		//printf("filename : %s\n", filename);
+		makeFilename(url, filename);
+		printf("filename : %s\n", filename);
 		FILE *out;
-		if ((out = fopen(filename, "wb")) == 0) {
-			fwrite(buffer, sizeof(char), strlen(buffer), out);
-			fclose(out);
-		}
-		printf("\n报文已缓存！\n");
+		out = fopen(filename, "w");
+		fwrite(buffer, sizeof(char), strlen(buffer), out);
+		fclose(out);
+		printf("\nnetpage has been stored\n");
 	}
 }
 
 //获取缓存
 void getCache(char *buffer, char *filename) {
-	char *p, num[10], tempBuffer[MAXSIZE + 1];
+	char *p, *ptr, num[10], tempBuffer[MAXSIZE + 1];
 	const char * delim = "\r\n";
 	ZeroMemory(num, 10);
 	ZeroMemory(tempBuffer, MAXSIZE + 1);
@@ -418,13 +434,68 @@ void getCache(char *buffer, char *filename) {
 	p = strtok(tempBuffer, delim);//提取第一行
 	memcpy(num, &p[9], 3);
 	if (strcmp(num, "304") == 0) {  //主机返回的报文中的状态码为304时返回已缓存的内容
-		printf("获取本地缓存！\n");
+		printf("get cache from host\n");
 		ZeroMemory(buffer, strlen(buffer));
-		FILE *in;
-		if ((in = fopen(filename, "rb")) == 0) {
+		FILE *in = NULL;
+		if ((in = fopen(filename, "r")) != NULL) {
 			fread(buffer, sizeof(char), MAXSIZE, in);
 			fclose(in);
 		}
-		needCache = false;
+		needCache = FALSE;
 	}
+}
+
+//修改URL,host
+void makeNewBuffer(char *buffer, char *host, char *url){
+    char *p, tempBuffer[MAXSIZE + 1];
+	const char * delim = "\r\n";
+	ZeroMemory(tempBuffer, MAXSIZE + 1);
+	memcpy(tempBuffer, buffer, strlen(buffer));
+	p = strtok(tempBuffer, delim);//提取第一行
+    char CacheBuffer[MAXSIZE];
+    ZeroMemory(CacheBuffer, MAXSIZE);
+    if(p[0] == 'G'){
+        char *tmp = "GET ";
+        memcpy(CacheBuffer, tmp, 4);
+        strcat(CacheBuffer, url);
+        int i = 11;
+        while(p[i] != '/'){
+            i++;
+        }
+        char dest[100];
+        ZeroMemory(dest, 100);
+        memcpy(dest, p+i, strlen(p)-i);
+        strcat(CacheBuffer, dest);
+    }
+    if(p[0] == 'P'){
+        char *tmp = "POST ";
+        memcpy(CacheBuffer, tmp, 5);
+        strcat(CacheBuffer, url);
+        int i = 12;
+        while(p[i] != '/'){
+            i++;
+        }
+        char dest[100];
+        ZeroMemory(dest, 100);
+        memcpy(dest, p+i, strlen(p)-i);
+        strcat(CacheBuffer, dest);
+    }
+    strcat(CacheBuffer, "\r\n");
+    while((p = strtok(NULL,"\r\n")) != NULL){
+        if(p[0] == 'H'){
+            char tmp[100];
+            ZeroMemory(tmp, 100);
+            char *t = "HOST: ";
+            memcpy(tmp, t, 6);
+            strcat(tmp, host);
+            strcat(CacheBuffer, tmp);
+        }
+        else{
+            strcat(CacheBuffer, p);
+        }
+        strcat(CacheBuffer, "\r\n");
+    }
+    strcat(CacheBuffer, "\0");
+    //printf("%s", CacheBuffer);
+    memcpy(buffer, CacheBuffer, strlen(CacheBuffer));
 }
