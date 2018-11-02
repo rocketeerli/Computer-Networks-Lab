@@ -11,11 +11,10 @@
 #define MAXSIZE 65507 //发送数据报文的最大长度
 #define HTTP_PORT 80 //http 服务器端口
 
-#define INVILID_WEBSITE "http://www.qq.com/"            //被屏蔽的网站
-
-#define FISHING_WEB_SRC "http://today.hit.edu.cn/"         //钓鱼的源网址
+#define INVILID_WEBSITE "http://www.qq.com/"          //被屏蔽的网站
+#define FISHING_WEB_SRC "http://today.hit.edu.cn/"    //钓鱼的源网址
 #define FISHING_WEB_DEST "http://jwts.hit.edu.cn/"    //钓鱼的目的网址
-
+#define FISHING_WEB_HOST "jwts.hit.edu.cn"            //钓鱼目的地址的主机名
 
 //Http 重要头部数据
 struct HttpHeader{
@@ -126,6 +125,8 @@ BOOL InitSocket(){
     }
     ProxyServerAddr.sin_family = AF_INET;
     ProxyServerAddr.sin_port = htons(ProxyPort);      //将整型变量从主机字节顺序转变成网络字节顺序
+
+    //屏蔽用户
     //ProxyServerAddr.sin_addr.S_un.S_addr = INADDR_ANY;
     ProxyServerAddr.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");//仅本机用户可访问服务器
     //ProxyServerAddr.sin_addr.S_un.S_addr = inet_addr("127.0.0.2");
@@ -200,33 +201,16 @@ unsigned int __stdcall ProxyThread(LPVOID lpParameter){
         goto error;
     }
     //网站引导：将访问网址转到其他网站
-    /*if (strcmp(httpHeader->url, FISHING_WEB_SRC) == 0) {
-        printf("-------------不好意思，。、您已被钓鱼，嘿嘿----------------\n");
-        //错误的
-        //memcpy(httpHeader->url, FISHING_WEB_DEST, strlen(FISHING_WEB_DEST));
-        memcpy(httpHeader->host, "jwts.hit.edu.cn", 22);
-        char *p1 = "http://jwts.hit.edu.cn";
-        char *p2 = "jwts.hit.edu.cn";
-        makeNewBuffer(Buffer, p2, p1);
-        /*memcpy(httpHeader->url, FISHING_WEB_DEST, strlen(FISHING_WEB_DEST));
-        memcpy(httpHeader->host, "jwts.hit.edu.cn", strlen("jwts.hit.edu.cn"));
-        printf("目的网址： %s",httpHeader->host);
-        printf("-------------已从源网址：%s 转到 目的网址 ：%s ----------------\n", FISHING_WEB_SRC,FISHING_WEB_DEST);
-    }*/
-
-    //网站引导：钓鱼
-	if (strstr(httpHeader->url, "http://today.hit.edu.cn/") != NULL) {
+	if (strstr(httpHeader->url, FISHING_WEB_SRC) != NULL) {
 		printf("\n=====================================\n\n");
 		printf("-------------已从源网址：%s 转到 目的网址 ：%s ----------------\n", FISHING_WEB_SRC,FISHING_WEB_DEST);
-		memcpy(httpHeader->host, "jwts.hit.edu.cn", 22);
-        char *p1 = FISHING_WEB_DEST;
-        char *p2 = "jwts.hit.edu.cn";
+		// 至于为什么要加一，我也不知道，只能说设成不加一不好使 只要大于他原来的长度就可以
+		memcpy(httpHeader->host, FISHING_WEB_HOST, strlen(FISHING_WEB_HOST) + 1);
         memcpy(httpHeader->url, FISHING_WEB_DEST, strlen(FISHING_WEB_DEST));
-        memcpy(httpHeader->host, "jwts.hit.edu.cn", strlen("jwts.hit.edu.cn"));
+        //memcpy(httpHeader->host, "jwts.hit.edu.cn", strlen("jwts.hit.edu.cn")); //这行不可以用，不知道为什么。。。
 	}
-
     delete CacheBuffer;
-    //delete DateBuffer;
+    delete DateBuffer;
 
 success:
     if(!ConnectToServer(&((ProxyParam *)lpParameter)->serverSocket,httpHeader->host)) {
@@ -249,16 +233,15 @@ success:
 	if (needCache == TRUE) {
 		makeCache(Buffer, httpHeader->url);  //缓存报文
 	}
-
     //将目标服务器返回的数据直接转发给客户端
     ret = send(((ProxyParam *)lpParameter)->clientSocket,Buffer,sizeof(Buffer),0);
-    //错误处理
 
+//错误处理
 error:
     printf("关闭套接字\n");
     delete Buffer;
     delete fileBuffer;
-    //delete filename;
+    delete filename;
     Sleep(200);
     closesocket(((ProxyParam*)lpParameter)->clientSocket);
     closesocket(((ProxyParam*)lpParameter)->serverSocket);
@@ -343,7 +326,6 @@ BOOL ConnectToServer(SOCKET *serverSocket,char *host){
     }
     return TRUE;
 }
-
 
 //分析HTTP头部的field字段，如果包含该field则返回true，并获取日期
 boolean ParseDate(char *buffer, char *field, char *tempDate) {
