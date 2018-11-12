@@ -129,7 +129,7 @@ BOOL InitSocket(){
     //屏蔽用户
     //ProxyServerAddr.sin_addr.S_un.S_addr = INADDR_ANY;
     ProxyServerAddr.sin_addr.S_un.S_addr = inet_addr("127.0.0.1");//仅本机用户可访问服务器
-    //ProxyServerAddr.sin_addr.S_un.S_addr = inet_addr("127.0.0.2");
+    //ProxyServerAddr.sin_addr.S_un.S_addr = inet_addr("127.0.0.2");  //屏蔽用户
     if(bind(ProxyServer,(SOCKADDR*)&ProxyServerAddr,sizeof(SOCKADDR)) == SOCKET_ERROR){
         printf("绑定套接字失败\n");
         return FALSE;
@@ -383,7 +383,6 @@ void makeFilename(char *url, char *filename) {
 	}
     strcat(filename, ".txt");
 }
-
 
 //进行缓存
 void makeCache(char *buffer, char *url) {
