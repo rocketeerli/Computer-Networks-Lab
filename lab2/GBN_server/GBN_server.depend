@@ -1,0 +1,7 @@
+# depslib dependency file v1.0
+1541700954 source:c:\users\13144\desktop\computer-networks-lab\lab2\gbn_server\main.cpp
+	<stdlib.h>
+	<time.h>
+	<WinSock2.h>
+	<fstream>
+

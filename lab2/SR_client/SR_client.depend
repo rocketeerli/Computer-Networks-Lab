@@ -1,0 +1,7 @@
+# depslib dependency file v1.0
+1541744180 source:c:\users\13144\desktop\computer-networks-lab\lab2\sr_client\main.cpp
+	<stdlib.h>
+	<WinSock2.h>
+	<time.h>
+	<fstream>
+
