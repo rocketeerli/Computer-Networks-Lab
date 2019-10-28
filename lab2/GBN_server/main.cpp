@@ -1,4 +1,4 @@
-//#include "stdafx.h" //´´½¨ VS ÏîÄ¿°üº¬µÄÔ¤±àÒëÍ·ÎÄ¼ş
+//#include "stdafx.h" //åˆ›å»º VS é¡¹ç›®åŒ…å«çš„é¢„ç¼–è¯‘å¤´æ–‡ä»¶
 #include <stdlib.h>
 #include <time.h>
 #include <WinSock2.h>
@@ -6,36 +6,36 @@
 
 #pragma comment(lib,"ws2_32.lib")
 
-#define SERVER_PORT 12340 //¶Ë¿ÚºÅ
-#define SERVER_IP  "0.0.0.0" //IP µØÖ·
-const int BUFFER_LENGTH = 1026;  //»º³åÇø´óĞ¡£¬£¨ÒÔÌ«ÍøÖĞ UDP µÄÊı¾İ Ö¡ÖĞ°ü³¤¶ÈÓ¦Ğ¡ÓÚ 1480 ×Ö½Ú£©
-const int SEND_WIND_SIZE = 10;   //·¢ËÍ´°¿Ú´óĞ¡Îª 10£¬GBN ÖĞÓ¦Âú×ã W + 1 <= N£¨W Îª·¢ËÍ´°¿Ú´óĞ¡£¬N ÎªĞòÁĞºÅ¸öÊı£©
-//±¾ÀıÈ¡ĞòÁĞºÅ 0...19 ¹² 20 ¸ö
-//Èç¹û½«´°¿Ú´óĞ¡ÉèÎª 1£¬ÔòÎªÍ£-µÈĞ­Òé
+#define SERVER_PORT 12340 //ç«¯å£å·
+#define SERVER_IP  "0.0.0.0" //IP åœ°å€
+const int BUFFER_LENGTH = 1026;  //ç¼“å†²åŒºå¤§å°ï¼Œï¼ˆä»¥å¤ªç½‘ä¸­ UDP çš„æ•°æ® å¸§ä¸­åŒ…é•¿åº¦åº”å°äº 1480 å­—èŠ‚ï¼‰
+const int SEND_WIND_SIZE = 10;   //å‘é€çª—å£å¤§å°ä¸º 10ï¼ŒGBN ä¸­åº”æ»¡è¶³ W + 1 <= Nï¼ˆW ä¸ºå‘é€çª—å£å¤§å°ï¼ŒN ä¸ºåºåˆ—å·ä¸ªæ•°ï¼‰
+//æœ¬ä¾‹å–åºåˆ—å· 0...19 å…± 20 ä¸ª
+//å¦‚æœå°†çª—å£å¤§å°è®¾ä¸º 1ï¼Œåˆ™ä¸ºåœ-ç­‰åè®®
 
-const int SEQ_SIZE = 20; //ĞòÁĞºÅµÄ¸öÊı£¬´Ó 0~19 ¹²¼Æ 20 ¸ö
-const int SEQ_NUMBER = 33; // seq µÄÊıÄ¿
-//ÓÉÓÚ·¢ËÍÊı¾İµÚÒ»¸ö×Ö½ÚÈç¹ûÖµÎª 0£¬ÔòÊı¾İ»á·¢ËÍÊ§°Ü
-//Òò´Ë½ÓÊÕ¶ËĞòÁĞºÅÎª 1~20£¬Óë·¢ËÍ¶ËÒ»Ò»¶ÔÓ¦
+const int SEQ_SIZE = 20; //åºåˆ—å·çš„ä¸ªæ•°ï¼Œä» 0~19 å…±è®¡ 20 ä¸ª
+const int SEQ_NUMBER = 33; // seq çš„æ•°ç›®
+//ç”±äºå‘é€æ•°æ®ç¬¬ä¸€ä¸ªå­—èŠ‚å¦‚æœå€¼ä¸º 0ï¼Œåˆ™æ•°æ®ä¼šå‘é€å¤±è´¥
+//å› æ­¤æ¥æ”¶ç«¯åºåˆ—å·ä¸º 1~20ï¼Œä¸å‘é€ç«¯ä¸€ä¸€å¯¹åº”
 
-BOOL ack[SEQ_SIZE];//ÊÕµ½ ack Çé¿ö£¬¶ÔÓ¦ 0~19 µÄ ack
-int curSeq;        //µ±Ç°Êı¾İ°üµÄ seq
-int curAck;        //µ±Ç°µÈ´ıÈ·ÈÏµÄ ack
-int totalSeq;      //ÊÕµ½µÄ°üµÄ×ÜÊı
-int totalPacket;   //ĞèÒª·¢ËÍµÄ°ü×ÜÊı
+BOOL ack[SEQ_SIZE];//æ”¶åˆ° ack æƒ…å†µï¼Œå¯¹åº” 0~19 çš„ ack
+int curSeq;        //å½“å‰æ•°æ®åŒ…çš„ seq
+int curAck;        //å½“å‰ç­‰å¾…ç¡®è®¤çš„ ack
+int totalSeq;      //æ”¶åˆ°çš„åŒ…çš„æ€»æ•°
+int totalPacket;   //éœ€è¦å‘é€çš„åŒ…æ€»æ•°
 
-/*ÎªÅĞ¶ÏÊı¾İ´«ÊäÊÇ·ñÍê³ÉÌí¼Ó»òĞŞ¸ÄµÄ¿ØÖÆ±äÁ¿*/
-int totalAck;      //È·ÈÏÊÕµ½£¨ack£©µÄ°üµÄ×ÜÊı
-int finish;        //±êÖ¾Î»£ºÊı¾İ´«ÊäÊÇ·ñÍê³É£¨finish=1->Êı¾İ´«ÊäÒÑÍê³É£©
+/*ä¸ºåˆ¤æ–­æ•°æ®ä¼ è¾“æ˜¯å¦å®Œæˆæ·»åŠ æˆ–ä¿®æ”¹çš„æ§åˆ¶å˜é‡*/
+int totalAck;      //ç¡®è®¤æ”¶åˆ°ï¼ˆackï¼‰çš„åŒ…çš„æ€»æ•°
+int finish;        //æ ‡å¿—ä½ï¼šæ•°æ®ä¼ è¾“æ˜¯å¦å®Œæˆï¼ˆfinish=1->æ•°æ®ä¼ è¾“å·²å®Œæˆï¼‰
 int finish_S;
-/*ÎªÅĞ¶ÏÊı¾İ´«ÊäÊÇ·ñÍê³ÉÌí¼ÓµÄ¿ØÖÆ±äÁ¿*/
+/*ä¸ºåˆ¤æ–­æ•°æ®ä¼ è¾“æ˜¯å¦å®Œæˆæ·»åŠ çš„æ§åˆ¶å˜é‡*/
 
 //************************************
 // Method:    getCurTime
 // FullName:  getCurTime
 // Access:    public
 // Returns:   void
-// Qualifier: »ñÈ¡µ±Ç°ÏµÍ³Ê±¼ä£¬½á¹û´æÈë ptime ÖĞ
+// Qualifier: è·å–å½“å‰ç³»ç»Ÿæ—¶é—´ï¼Œç»“æœå­˜å…¥ ptime ä¸­
 // Parameter: char * ptime
 //************************************
 void getCurTime(char *ptime){
@@ -60,13 +60,13 @@ void getCurTime(char *ptime){
 // FullName:  seqIsAvailable
 // Access:    public
 // Returns:   bool
-// Qualifier: µ±Ç°ĞòÁĞºÅ curSeq ÊÇ·ñ¿ÉÓÃ
+// Qualifier: å½“å‰åºåˆ—å· curSeq æ˜¯å¦å¯ç”¨
 //************************************
 bool seqIsAvailable(){
     int step;
     step = curSeq - curAck;
     step = step >= 0 ? step : step + SEQ_SIZE;
-    //ĞòÁĞºÅÊÇ·ñÔÚµ±Ç°·¢ËÍ´°¿ÚÖ®ÄÚ
+    //åºåˆ—å·æ˜¯å¦åœ¨å½“å‰å‘é€çª—å£ä¹‹å†…
     if(step >= SEND_WIND_SIZE){
         return false;
     }
@@ -81,7 +81,7 @@ bool seqIsAvailable(){
 // FullName:  timeoutHandler
 // Access:    public
 // Returns:   void
-// Qualifier: ³¬Ê±ÖØ´«´¦Àíº¯Êı£¬»¬¶¯´°¿ÚÄÚµÄÊı¾İÖ¡¶¼ÒªÖØ´«
+// Qualifier: è¶…æ—¶é‡ä¼ å¤„ç†å‡½æ•°ï¼Œæ»‘åŠ¨çª—å£å†…çš„æ•°æ®å¸§éƒ½è¦é‡ä¼ 
 //************************************
 void timeoutHandler(){
     printf("Timer out error.\n");
@@ -91,8 +91,8 @@ void timeoutHandler(){
         ack[index] = TRUE;
     }
 
-    /*ÎªÅĞ¶ÏÊı¾İ´«ÊäÊÇ·ñÍê³ÉÌí¼Ó»òĞŞ¸ÄµÄÓï¾ä*/
-	if(totalSeq == totalPacket){//Ö®Ç°·¢ËÍµ½ÁË×îºóÒ»¸öÊı¾İ°ü
+    /*ä¸ºåˆ¤æ–­æ•°æ®ä¼ è¾“æ˜¯å¦å®Œæˆæ·»åŠ æˆ–ä¿®æ”¹çš„è¯­å¥*/
+	if(totalSeq == totalPacket){//ä¹‹å‰å‘é€åˆ°äº†æœ€åä¸€ä¸ªæ•°æ®åŒ…
 		if(curSeq > curAck){
 			totalSeq -= (curSeq-curAck);
 		}
@@ -100,12 +100,12 @@ void timeoutHandler(){
 			totalSeq -= (curSeq - curAck + 20);
 		}
 	}
-	else{//Ö®Ç°Ã»·¢ËÍµ½×îºóÒ»¸öÊı¾İ°ü
+	else{//ä¹‹å‰æ²¡å‘é€åˆ°æœ€åä¸€ä¸ªæ•°æ®åŒ…
 		totalSeq -= SEND_WIND_SIZE;
 	}
-	/*ÎªÅĞ¶ÏÊı¾İ´«ÊäÊÇ·ñÍê³ÉÌí¼Ó»òĞŞ¸ÄµÄÓï¾ä*/
+	/*ä¸ºåˆ¤æ–­æ•°æ®ä¼ è¾“æ˜¯å¦å®Œæˆæ·»åŠ æˆ–ä¿®æ”¹çš„è¯­å¥*/
 
-    totalSeq -= SEND_WIND_SIZE;
+   // totalSeq -= SEND_WIND_SIZE;
     curSeq = curAck;
 }
 
@@ -114,15 +114,15 @@ void timeoutHandler(){
 // FullName:  ackHandler
 // Access:    public
 // Returns:   void
-// Qualifier: ÊÕµ½ ack£¬ÀÛ»ıÈ·ÈÏ£¬È¡Êı¾İÖ¡µÄµÚÒ»¸ö×Ö½Ú
-//ÓÉÓÚ·¢ËÍÊı¾İÊ±£¬µÚÒ»¸ö×Ö½Ú£¨ĞòÁĞºÅ£©Îª 0£¨ASCII£©Ê±·¢ËÍÊ§°Ü£¬Òò´Ë¼ÓÒ» ÁË£¬´Ë´¦ĞèÒª¼õÒ»»¹Ô­
+// Qualifier: æ”¶åˆ° ackï¼Œç´¯ç§¯ç¡®è®¤ï¼Œå–æ•°æ®å¸§çš„ç¬¬ä¸€ä¸ªå­—èŠ‚
+//ç”±äºå‘é€æ•°æ®æ—¶ï¼Œç¬¬ä¸€ä¸ªå­—èŠ‚ï¼ˆåºåˆ—å·ï¼‰ä¸º 0ï¼ˆASCIIï¼‰æ—¶å‘é€å¤±è´¥ï¼Œå› æ­¤åŠ ä¸€ äº†ï¼Œæ­¤å¤„éœ€è¦å‡ä¸€è¿˜åŸ
 // Parameter: char c
 //************************************
 void ackHandler(char c){
-    unsigned char index = (unsigned char)c - 1; //ĞòÁĞºÅ¼õÒ»
+    unsigned char index = (unsigned char)c - 1; //åºåˆ—å·å‡ä¸€
     printf("Recv a ack of %d\n",index);
 
-    //Èç¹ûÊÕµ½µÄĞòÁĞºÅ´óÓÚ curAck ÔòÔÚÕâÖ®Ç°µÄ±¨ÎÄ¶ÎÈ«²¿±»½ÓÊÕ
+    //å¦‚æœæ”¶åˆ°çš„åºåˆ—å·å¤§äº curAck åˆ™åœ¨è¿™ä¹‹å‰çš„æŠ¥æ–‡æ®µå…¨éƒ¨è¢«æ¥æ”¶
     if(curAck <= index){
         for(int i= curAck; i <= index;++i){
             ack[i] = TRUE;
@@ -131,7 +131,7 @@ void ackHandler(char c){
         totalAck+=(index-curAck+1);
         curAck = (index + 1) % SEQ_SIZE;
     } else{
-        //ack ³¬¹ıÁË×î´óÖµ£¬»Øµ½ÁË curAck µÄ×ó±ß
+        //ack è¶…è¿‡äº†æœ€å¤§å€¼ï¼Œå›åˆ°äº† curAck çš„å·¦è¾¹
         for(int i = curAck;i< SEQ_SIZE;++i){
             ack[i] = TRUE;
         }
@@ -149,7 +149,7 @@ void ackHandler(char c){
 // FullName: lossInLossRatio
 // Access: public
 // Returns: BOOL
-// Qualifier: ¸ù¾İ¶ªÊ§ÂÊËæ»úÉú³ÉÒ»¸öÊı×Ö£¬ÅĞ¶ÏÊÇ·ñ¶ªÊ§,¶ªÊ§Ôò·µ»ØTRUE£¬·ñÔò·µ»Ø FALSE
+// Qualifier: æ ¹æ®ä¸¢å¤±ç‡éšæœºç”Ÿæˆä¸€ä¸ªæ•°å­—ï¼Œåˆ¤æ–­æ˜¯å¦ä¸¢å¤±,ä¸¢å¤±åˆ™è¿”å›TRUEï¼Œå¦åˆ™è¿”å› FALSE
 // Parameter: float lossRatio [0,1]
 //************************************
 BOOL lossInLossRatio(float lossRatio){
@@ -161,19 +161,19 @@ BOOL lossInLossRatio(float lossRatio){
 	return FALSE;
 }
 
-//Ö÷º¯Êı
+//ä¸»å‡½æ•°
 int main(int argc, char* argv[]) {
-    //¼ÓÔØÌ×½Ó×Ö¿â£¨±ØĞë£©
+    //åŠ è½½å¥—æ¥å­—åº“ï¼ˆå¿…é¡»ï¼‰
     WORD wVersionRequested;
     WSADATA wsaData;
-    //Ì×½Ó×Ö¼ÓÔØÊ±´íÎóÌáÊ¾
+    //å¥—æ¥å­—åŠ è½½æ—¶é”™è¯¯æç¤º
     int err;
-    //°æ±¾ 2.2
+    //ç‰ˆæœ¬ 2.2
     wVersionRequested = MAKEWORD(2, 2);
-    //¼ÓÔØ dll ÎÄ¼ş Scoket ¿â
+    //åŠ è½½ dll æ–‡ä»¶ Scoket åº“
     err = WSAStartup(wVersionRequested, &wsaData);
     if(err != 0){
-        //ÕÒ²»µ½ winsock.dll
+        //æ‰¾ä¸åˆ° winsock.dll
         printf("WSAStartup failed with error: %d\n", err);
         return -1;
     }
@@ -184,12 +184,12 @@ int main(int argc, char* argv[]) {
         printf("The Winsock 2.2 dll was found okay\n");
     }
     SOCKET sockServer = socket(AF_INET, SOCK_DGRAM,IPPROTO_UDP);
-    //ÉèÖÃÌ×½Ó×ÖÎª·Ç×èÈûÄ£Ê½
-    int iMode = 1; //1£º·Ç×èÈû£¬0£º×èÈû
-    ioctlsocket(sockServer,FIONBIO, (u_long FAR*) &iMode);//·Ç×èÈûÉèÖÃ
-    SOCKADDR_IN addrServer;  //·şÎñÆ÷µØÖ·
+    //è®¾ç½®å¥—æ¥å­—ä¸ºéé˜»å¡æ¨¡å¼
+    int iMode = 1; //1ï¼šéé˜»å¡ï¼Œ0ï¼šé˜»å¡
+    ioctlsocket(sockServer,FIONBIO, (u_long FAR*) &iMode);//éé˜»å¡è®¾ç½®
+    SOCKADDR_IN addrServer;  //æœåŠ¡å™¨åœ°å€
     //addrServer.sin_addr.S_un.S_addr = inet_addr(SERVER_IP);
-    addrServer.sin_addr.S_un.S_addr = htonl(INADDR_ANY);//Á½Õß¾ù¿É
+    addrServer.sin_addr.S_un.S_addr = htonl(INADDR_ANY);//ä¸¤è€…å‡å¯
     addrServer.sin_family = AF_INET;
     addrServer.sin_port = htons(SERVER_PORT);
     err = bind(sockServer,(SOCKADDR*)&addrServer, sizeof(SOCKADDR));
@@ -199,17 +199,17 @@ int main(int argc, char* argv[]) {
         WSACleanup();
         return -1;
     }
-    /*Ë«Ïò´«ÊäµÄ¶ª°üÂÊ*/
-    float packetLossRatio = 0.2;  //Ä¬ÈÏ°ü¶ªÊ§ÂÊ 0.2
-	float ackLossRatio = 0.2;     //Ä¬ÈÏ ACK ¶ªÊ§ÂÊ 0.2
-	//ÓÃÊ±¼ä×÷ÎªËæ»úÖÖ×Ó£¬·ÅÔÚÑ­»·µÄ×îÍâÃæ
+    /*åŒå‘ä¼ è¾“çš„ä¸¢åŒ…ç‡*/
+    float packetLossRatio = 0.2;  //é»˜è®¤åŒ…ä¸¢å¤±ç‡ 0.2
+	float ackLossRatio = 0.2;     //é»˜è®¤ ACK ä¸¢å¤±ç‡ 0.2
+	//ç”¨æ—¶é—´ä½œä¸ºéšæœºç§å­ï¼Œæ”¾åœ¨å¾ªç¯çš„æœ€å¤–é¢
 	srand((unsigned)time(NULL));
 
-    SOCKADDR_IN addrClient;        //¿Í»§¶ËµØÖ·
+    SOCKADDR_IN addrClient;        //å®¢æˆ·ç«¯åœ°å€
     int length = sizeof(SOCKADDR);
-    char buffer[BUFFER_LENGTH];    //Êı¾İ·¢ËÍ½ÓÊÕ»º³åÇø
+    char buffer[BUFFER_LENGTH];    //æ•°æ®å‘é€æ¥æ”¶ç¼“å†²åŒº
     ZeroMemory(buffer,sizeof(buffer));
-    //½«²âÊÔÊı¾İ¶ÁÈëÄÚ´æ
+    //å°†æµ‹è¯•æ•°æ®è¯»å…¥å†…å­˜
     std::ifstream icin;
     icin.open("test.txt");
     char data[1024 * SEQ_NUMBER];
@@ -217,19 +217,19 @@ int main(int argc, char* argv[]) {
     icin.read(data,1024 * SEQ_NUMBER);
     icin.close();
     totalPacket = sizeof(data) / 1024;
-    printf("totalPacket is £º%d\n\n",totalPacket);
+    printf("totalPacket is ï¼š%d\n\n",totalPacket);
 
     int recvSize;
-    //ÉèÖÃ±êÖ¾Î»
+    //è®¾ç½®æ ‡å¿—ä½
     finish=0;
 	finish_S=0;
 
-    //³õÊ¼»¯ack
+    //åˆå§‹åŒ–ack
     for(int i=0; i < SEQ_SIZE; ++i){
         ack[i] = TRUE;
     }
     while(true){
-        //·Ç×èÈû½ÓÊÕ£¬ÈôÃ»ÓĞÊÕµ½Êı¾İ£¬·µ»ØÖµÎª-1
+        //éé˜»å¡æ¥æ”¶ï¼Œè‹¥æ²¡æœ‰æ”¶åˆ°æ•°æ®ï¼Œè¿”å›å€¼ä¸º-1
         recvSize = recvfrom(sockServer,buffer,BUFFER_LENGTH,0,((SOCKADDR*)&addrClient),&length);
         if(recvSize < 0){
             Sleep(200);
@@ -247,30 +247,30 @@ int main(int argc, char* argv[]) {
 				ack[i] = TRUE;
 			}
 
-            //½øÈë gbn ²âÊÔ½×¶Î
-            //Ê×ÏÈ server£¨server ´¦ÓÚ 0 ×´Ì¬£©Ïò client ·¢ËÍ 205 ×´Ì¬Âë£¨server ½øÈë 1 ×´Ì¬£©
-            //server µÈ´ı client »Ø¸´ 200 ×´Ì¬Âë£¬Èç¹ûÊÕµ½£¨server ½øÈë 2 ×´Ì¬£©£¬ Ôò¿ªÊ¼´«ÊäÎÄ¼ş£¬·ñÔòÑÓÊ±µÈ´ıÖ±ÖÁ³¬Ê±\
-            //ÔÚÎÄ¼ş´«Êä½×¶Î£¬server ·¢ËÍ´°¿Ú´óĞ¡ÉèÎª
+            //è¿›å…¥ gbn æµ‹è¯•é˜¶æ®µ
+            //é¦–å…ˆ serverï¼ˆserver å¤„äº 0 çŠ¶æ€ï¼‰å‘ client å‘é€ 205 çŠ¶æ€ç ï¼ˆserver è¿›å…¥ 1 çŠ¶æ€ï¼‰
+            //server ç­‰å¾… client å›å¤ 200 çŠ¶æ€ç ï¼Œå¦‚æœæ”¶åˆ°ï¼ˆserver è¿›å…¥ 2 çŠ¶æ€ï¼‰ï¼Œ åˆ™å¼€å§‹ä¼ è¾“æ–‡ä»¶ï¼Œå¦åˆ™å»¶æ—¶ç­‰å¾…ç›´è‡³è¶…æ—¶\
+            //åœ¨æ–‡ä»¶ä¼ è¾“é˜¶æ®µï¼Œserver å‘é€çª—å£å¤§å°è®¾ä¸º
             ZeroMemory(buffer,sizeof(buffer));
             int recvSize;
             int waitCount = 0;
             printf("Begain to test GBN protocol,please don't abort the process\n");
-            //¼ÓÈëÁËÒ»¸öÎÕÊÖ½×¶Î
-            //Ê×ÏÈ·şÎñÆ÷Ïò¿Í»§¶Ë·¢ËÍÒ»¸ö 205 ´óĞ¡µÄ×´Ì¬Âë£¨ÎÒ×Ô¼º¶¨ÒåµÄ£© ±íÊ¾·şÎñÆ÷×¼±¸ºÃÁË£¬¿ÉÒÔ·¢ËÍÊı¾İ
-            //¿Í»§¶ËÊÕµ½ 205 Ö®ºó»Ø¸´Ò»¸ö 200 ´óĞ¡µÄ×´Ì¬Âë£¬±íÊ¾¿Í»§¶Ë×¼ ±¸ºÃÁË£¬¿ÉÒÔ½ÓÊÕÊı¾İÁË
-            //·şÎñÆ÷ÊÕµ½ 200 ×´Ì¬ÂëÖ®ºó£¬¾Í¿ªÊ¼Ê¹ÓÃ GBN ·¢ËÍÊı¾İÁË
+            //åŠ å…¥äº†ä¸€ä¸ªæ¡æ‰‹é˜¶æ®µ
+            //é¦–å…ˆæœåŠ¡å™¨å‘å®¢æˆ·ç«¯å‘é€ä¸€ä¸ª 205 å¤§å°çš„çŠ¶æ€ç ï¼ˆæˆ‘è‡ªå·±å®šä¹‰çš„ï¼‰ è¡¨ç¤ºæœåŠ¡å™¨å‡†å¤‡å¥½äº†ï¼Œå¯ä»¥å‘é€æ•°æ®
+            //å®¢æˆ·ç«¯æ”¶åˆ° 205 ä¹‹åå›å¤ä¸€ä¸ª 200 å¤§å°çš„çŠ¶æ€ç ï¼Œè¡¨ç¤ºå®¢æˆ·ç«¯å‡† å¤‡å¥½äº†ï¼Œå¯ä»¥æ¥æ”¶æ•°æ®äº†
+            //æœåŠ¡å™¨æ”¶åˆ° 200 çŠ¶æ€ç ä¹‹åï¼Œå°±å¼€å§‹ä½¿ç”¨ GBN å‘é€æ•°æ®äº†
             printf("Shake hands stage\n");
             int stage = 0;
             bool runFlag = true;
             while(runFlag) {
                 switch(stage) {
-                    case 0://·¢ËÍ 205 ½×¶Î
+                    case 0://å‘é€ 205 é˜¶æ®µ
                         buffer[0] = 205;
                         sendto(sockServer, buffer, strlen(buffer)+1, 0, (SOCKADDR*)&addrClient, sizeof(SOCKADDR));
                         Sleep(100);
                         stage = 1;
                         break;
-                    case 1://µÈ´ı½ÓÊÕ 200 ½×¶Î£¬Ã»ÓĞÊÕµ½Ôò¼ÆÊıÆ÷+1£¬³¬Ê±Ôò ·ÅÆú´Ë´Î¡°Á¬½Ó¡±£¬µÈ´ı´ÓµÚÒ»²½¿ªÊ¼
+                    case 1://ç­‰å¾…æ¥æ”¶ 200 é˜¶æ®µï¼Œæ²¡æœ‰æ”¶åˆ°åˆ™è®¡æ•°å™¨+1ï¼Œè¶…æ—¶åˆ™ æ”¾å¼ƒæ­¤æ¬¡â€œè¿æ¥â€ï¼Œç­‰å¾…ä»ç¬¬ä¸€æ­¥å¼€å§‹
                         recvSize = recvfrom(sockServer,buffer,BUFFER_LENGTH,0,((SOCKADDR*)&addrClient),&length);
                         if(recvSize < 0){
                             ++waitCount;
@@ -296,15 +296,15 @@ int main(int argc, char* argv[]) {
                             }
                         }
                         break;
-                    case 2://Êı¾İ´«Êä½×¶Î
+                    case 2://æ•°æ®ä¼ è¾“é˜¶æ®µ
 
-                        /*ÎªÅĞ¶ÏÊı¾İ´«ÊäÊÇ·ñÍê³ÉÌí¼Ó»òĞŞ¸ÄµÄÓï¾ä*/
+                        /*ä¸ºåˆ¤æ–­æ•°æ®ä¼ è¾“æ˜¯å¦å®Œæˆæ·»åŠ æˆ–ä¿®æ”¹çš„è¯­å¥*/
                         if(seqIsAvailable() && totalSeq<=(totalPacket-1) ) {
-                            //·¢ËÍ¸ø¿Í»§¶ËµÄĞòÁĞºÅ´Ó 1 ¿ªÊ¼
+                            //å‘é€ç»™å®¢æˆ·ç«¯çš„åºåˆ—å·ä» 1 å¼€å§‹
                             buffer[0] = curSeq + 1;
                             ack[curSeq] = FALSE;
-                            //Êı¾İ·¢ËÍµÄ¹ı³ÌÖĞÓ¦¸ÃÅĞ¶ÏÊÇ·ñ´«ÊäÍê³É
-                            //Îª¼ò»¯¹ı³Ì´Ë´¦²¢Î´ÊµÏÖ
+                            //æ•°æ®å‘é€çš„è¿‡ç¨‹ä¸­åº”è¯¥åˆ¤æ–­æ˜¯å¦ä¼ è¾“å®Œæˆ
+                            //ä¸ºç®€åŒ–è¿‡ç¨‹æ­¤å¤„å¹¶æœªå®ç°
                             memcpy(&buffer[1],data + 1024 * totalSeq,1024);
                             printf("send a packet with a seq of %d\n",curSeq);
                             sendto(sockServer, buffer, BUFFER_LENGTH, 0, (SOCKADDR*)&addrClient, sizeof(SOCKADDR));
@@ -313,78 +313,78 @@ int main(int argc, char* argv[]) {
                             ++totalSeq;
                             Sleep(500);
                         }
-                        //µÈ´ı Ack£¬ÈôÃ»ÓĞÊÕµ½£¬Ôò·µ»ØÖµÎª-1£¬¼ÆÊıÆ÷+1
+                        //ç­‰å¾… Ackï¼Œè‹¥æ²¡æœ‰æ”¶åˆ°ï¼Œåˆ™è¿”å›å€¼ä¸º-1ï¼Œè®¡æ•°å™¨+1
                         recvSize = recvfrom(sockServer,buffer,BUFFER_LENGTH,0,((SOCKADDR*)&addrClient),&length);
                         if (recvSize < 0) {
                             waitCount++;
-                            //20 ´ÎµÈ´ı ack Ôò³¬Ê±ÖØ´«
+                            //20 æ¬¡ç­‰å¾… ack åˆ™è¶…æ—¶é‡ä¼ 
                             if (waitCount > 20) {
                                 timeoutHandler();
                                 printf("\t----totalSeq Now is : %d\n",totalSeq);
                                 waitCount = 0;
                             }
                         } else {
-                            //ÊÕµ½ ack
+                            //æ”¶åˆ° ack
                             ackHandler(buffer[0]);
                             printf("\t\t----totalAck Now is : %d\n",totalAck);
                             waitCount = 0;
 
-                            /*ÎªÅĞ¶ÏÊı¾İ´«ÊäÊÇ·ñÍê³ÉÌí¼Ó»òĞŞ¸ÄµÄÓï¾ä*/
-							if(totalAck==totalPacket){//Êı¾İ´«ÊäÍê³É
+                            /*ä¸ºåˆ¤æ–­æ•°æ®ä¼ è¾“æ˜¯å¦å®Œæˆæ·»åŠ æˆ–ä¿®æ”¹çš„è¯­å¥*/
+							if(totalAck==totalPacket){//æ•°æ®ä¼ è¾“å®Œæˆ
 								finish=1;
 								break;
 							}
-							/*ÎªÅĞ¶ÏÊı¾İ´«ÊäÊÇ·ñÍê³ÉÌí¼Ó»òĞŞ¸ÄµÄÓï¾ä*/
+							/*ä¸ºåˆ¤æ–­æ•°æ®ä¼ è¾“æ˜¯å¦å®Œæˆæ·»åŠ æˆ–ä¿®æ”¹çš„è¯­å¥*/
 
                         }
                         Sleep(500);
                         break;
                 }
 
-                /*ÎªÅĞ¶ÏÊı¾İ´«ÊäÊÇ·ñÍê³ÉÌí¼Ó»òĞŞ¸ÄµÄÓï¾ä*/
+                /*ä¸ºåˆ¤æ–­æ•°æ®ä¼ è¾“æ˜¯å¦å®Œæˆæ·»åŠ æˆ–ä¿®æ”¹çš„è¯­å¥*/
 				if(finish==1){
-					printf("Êı¾İ´«ÊäÈ«²¿Íê³É£¡£¡£¡\n");
-					strcpy(buffer,"Êı¾İ´«ÊäÈ«²¿Íê³É£¡£¡£¡\n");
+					printf("æ•°æ®ä¼ è¾“å…¨éƒ¨å®Œæˆï¼ï¼ï¼\n");
+					strcpy(buffer,"æ•°æ®ä¼ è¾“å…¨éƒ¨å®Œæˆï¼ï¼ï¼\n");
 					sendto(sockServer, buffer, strlen(buffer)+1, 0, (SOCKADDR*)&addrClient,sizeof(SOCKADDR));
 					break;
 				}
-				/*ÎªÅĞ¶ÏÊı¾İ´«ÊäÊÇ·ñÍê³ÉÌí¼Ó»òĞŞ¸ÄµÄÓï¾ä*/
+				/*ä¸ºåˆ¤æ–­æ•°æ®ä¼ è¾“æ˜¯å¦å®Œæˆæ·»åŠ æˆ–ä¿®æ”¹çš„è¯­å¥*/
 
             }
         }
 
-        /* Ë«ÏòÊı¾İ´«Êä */
+        /* åŒå‘æ•°æ®ä¼ è¾“ */
         else if(strcmp(buffer,"-testgbn_Send") == 0){
-			iMode = 0; //1£º·Ç×èÈû£¬0£º×èÈû
-			ioctlsocket(sockServer,FIONBIO, (u_long FAR*) &iMode);//·Ç×èÈûÉèÖÃ
+			iMode = 0; //1ï¼šéé˜»å¡ï¼Œ0ï¼šé˜»å¡
+			ioctlsocket(sockServer,FIONBIO, (u_long FAR*) &iMode);//éé˜»å¡è®¾ç½®
 			printf("%s\n","Begin to test GBN protocol, please don't abort the  process");
 			printf("The loss ratio of packet is %.2f,the loss ratio of ack  is %.2f\n",packetLossRatio,ackLossRatio);
 			int waitCount = 0;
 			int stage = 0;
 			finish_S=0;
 			BOOL b;
-			unsigned char u_code;//×´Ì¬Âë
-			unsigned short seq;//°üµÄĞòÁĞºÅ
-			unsigned short recvSeq;//½ÓÊÕ´°¿Ú´óĞ¡Îª 1£¬ÒÑÈ·ÈÏµÄĞòÁĞºÅ
-			unsigned short waitSeq;//µÈ´ıµÄĞòÁĞºÅ
+			unsigned char u_code;//çŠ¶æ€ç 
+			unsigned short seq;//åŒ…çš„åºåˆ—å·
+			unsigned short recvSeq;//æ¥æ”¶çª—å£å¤§å°ä¸º 1ï¼Œå·²ç¡®è®¤çš„åºåˆ—å·
+			unsigned short waitSeq;//ç­‰å¾…çš„åºåˆ—å·
 			sendto(sockServer,  "-testgbn_Send",  strlen("-testgbn_Send")+1,  0,
 			(SOCKADDR*)&addrClient, sizeof(SOCKADDR));
 			while (true)
 			{
-				//µÈ´ı server »Ø¸´ÉèÖÃ UDP Îª×èÈûÄ£Ê½
+				//ç­‰å¾… server å›å¤è®¾ç½® UDP ä¸ºé˜»å¡æ¨¡å¼
 				recvfrom(sockServer,buffer,BUFFER_LENGTH,0,(SOCKADDR*)&addrClient, &length);
 
 
-				/*ÎªÅĞ¶ÏÊı¾İ´«ÊäÊÇ·ñÍê³ÉÌí¼Ó»òĞŞ¸ÄµÄÓï¾ä*/
-				if(!strcmp(buffer,"Êı¾İ´«ÊäÈ«²¿Íê³É£¡£¡£¡\n")){
+				/*ä¸ºåˆ¤æ–­æ•°æ®ä¼ è¾“æ˜¯å¦å®Œæˆæ·»åŠ æˆ–ä¿®æ”¹çš„è¯­å¥*/
+				if(!strcmp(buffer,"æ•°æ®ä¼ è¾“å…¨éƒ¨å®Œæˆï¼ï¼ï¼\n")){
 					finish_S=1;
 					break;
 				}
-				/*ÎªÅĞ¶ÏÊı¾İ´«ÊäÊÇ·ñÍê³ÉÌí¼Ó»òĞŞ¸ÄµÄÓï¾ä*/
+				/*ä¸ºåˆ¤æ–­æ•°æ®ä¼ è¾“æ˜¯å¦å®Œæˆæ·»åŠ æˆ–ä¿®æ”¹çš„è¯­å¥*/
 
 
 				switch(stage){
-					case 0://µÈ´ıÎÕÊÖ½×¶Î
+					case 0://ç­‰å¾…æ¡æ‰‹é˜¶æ®µ
 						u_code = (unsigned char)buffer[0];
 						if ((unsigned char)buffer[0] == 205)
 						{
@@ -398,28 +398,28 @@ int main(int argc, char* argv[]) {
 							waitSeq = 1;
 						}
 						break;
-					case 1://µÈ´ı½ÓÊÕÊı¾İ½×¶Î
+					case 1://ç­‰å¾…æ¥æ”¶æ•°æ®é˜¶æ®µ
 						seq = (unsigned short)buffer[0];
-						//Ëæ»ú·¨Ä£Äâ°üÊÇ·ñ¶ªÊ§
+						//éšæœºæ³•æ¨¡æ‹ŸåŒ…æ˜¯å¦ä¸¢å¤±
 						b = lossInLossRatio(packetLossRatio);
 						if(b){
 							printf("The packet with a seq of %d loss\n",seq);
 							continue;
 						}
 						printf("recv a packet with a seq of %d\n",seq);
-						//Èç¹ûÊÇÆÚ´ıµÄ°ü£¬ÕıÈ·½ÓÊÕ£¬Õı³£È·ÈÏ¼´¿É
+						//å¦‚æœæ˜¯æœŸå¾…çš„åŒ…ï¼Œæ­£ç¡®æ¥æ”¶ï¼Œæ­£å¸¸ç¡®è®¤å³å¯
 						if(!(waitSeq - seq)){
 							++waitSeq;
 							if(waitSeq == 21){
 								waitSeq = 1;
 							}
-							//Êä³öÊı¾İ
+							//è¾“å‡ºæ•°æ®
 							printf("\n\n%s\n\n",&buffer[1]);
 							buffer[0] = seq;
 							recvSeq = seq;
 							buffer[1] = '\0';
 						}else{
-							//Èç¹ûµ±Ç°Ò»¸ö°ü¶¼Ã»ÓĞÊÕµ½£¬ÔòµÈ´ı Seq Îª 1 µÄÊı¾İ°ü£¬²»ÊÇÔò²»·µ»Ø ACK£¨ÒòÎª²¢Ã»ÓĞÉÏÒ»¸öÕıÈ·µÄ ACK£©
+							//å¦‚æœå½“å‰ä¸€ä¸ªåŒ…éƒ½æ²¡æœ‰æ”¶åˆ°ï¼Œåˆ™ç­‰å¾… Seq ä¸º 1 çš„æ•°æ®åŒ…ï¼Œä¸æ˜¯åˆ™ä¸è¿”å› ACKï¼ˆå› ä¸ºå¹¶æ²¡æœ‰ä¸Šä¸€ä¸ªæ­£ç¡®çš„ ACKï¼‰
 							if(!recvSeq){
 								continue;
 							}
@@ -437,11 +437,11 @@ int main(int argc, char* argv[]) {
 				}
 				Sleep(500);
 			}
-			iMode = 1; //1£º·Ç×èÈû£¬0£º×èÈû
-			ioctlsocket(sockServer,FIONBIO, (u_long FAR*) &iMode);//·Ç×èÈûÉèÖÃ
+			iMode = 1; //1ï¼šéé˜»å¡ï¼Œ0ï¼šé˜»å¡
+			ioctlsocket(sockServer,FIONBIO, (u_long FAR*) &iMode);//éé˜»å¡è®¾ç½®
         }
 		if(finish_S==1){
-			printf("Êı¾İ´«ÊäÈ«²¿Íê³É£¡£¡£¡\n\n");
+			printf("æ•°æ®ä¼ è¾“å…¨éƒ¨å®Œæˆï¼ï¼ï¼\n\n");
 			finish_S=0;
 			continue;
 		}
@@ -453,7 +453,7 @@ int main(int argc, char* argv[]) {
         sendto(sockServer, buffer, strlen(buffer)+1, 0, (SOCKADDR*)&addrClient, sizeof(SOCKADDR));
         Sleep(500);
     }
-    //¹Ø±ÕÌ×½Ó×Ö£¬Ğ¶ÔØ¿â
+    //å…³é—­å¥—æ¥å­—ï¼Œå¸è½½åº“
     closesocket(sockServer);
     WSACleanup();
     return 0;
